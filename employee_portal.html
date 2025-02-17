@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee Portal</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #fff;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+    }
+    .hidden {
+      display: none;
+    }
+    .tabs {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .tab {
+      padding: 10px 20px;
+      background: #007bff;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .tab:hover {
+      background: #0056b3;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background: #007bff;
+      color: white;
+    }
+    input[type="text"], input[type="password"], button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      box-sizing: border-box;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    input[type="text"]:focus, input[type="password"]:focus, button:focus {
+      border-color: #007bff;
+      outline: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="login-page">
+    <h2>Login</h2>
+    <label for="username">Username:</label>
+    <input type="text" id="username" placeholder="Enter your username">
+    <label for="password">Password:</label>
+    <input type="password" id="password" placeholder="Enter your password">
+    <button onclick="login()">Login</button>
+    <p id="login-error" style="color: red; display: none;">Invalid username or password</p>
+  </div>
+
+  <div class="container hidden" id="homepage">
+    <h2>Welcome to the Employee Portal</h2>
+    <div class="tabs">
+      <div class="tab" onclick="showSection('employee-lookup')">Employee Lookup</div>
+      <div class="tab">Holiday List</div>
+      <div class="tab">Support</div>
+      <div class="tab">FAQ</div>
+      <div class="tab">Taxes</div>
+    </div>
+    <button onclick="goToLogin()">Home</button>
+    <div id="employee-lookup" class="hidden">
+      <h3>Employee Lookup</h3>
+      <input type="text" id="search" placeholder="Search by name or ID">
+      <button onclick="filterEmployees()">Search</button>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Department</th>
+            <th>Position</th>
+          </tr>
+        </thead>
+        <tbody id="employee-table">
+          <!-- Employee rows will be injected here by JavaScript -->
+        </tbody>
+      </table>
+      <p id="no-results" style="color: red; display: none;">No employee found</p>
+    </div>
+  </div>
+
+  <script>
+    const employees = [
+      { id: 1, name: 'John Doe', department: 'Engineering', position: 'Software Engineer' },
+      { id: 2, name: 'Jane Smith', department: 'HR', position: 'HR Manager' },
+      { id: 3, name: 'Sam Johnson', department: 'Finance', position: 'Accountant' },
+      { id: 4, name: 'Chris Lee', department: 'Marketing', position: 'Marketing Specialist' }
+    ];
+
+    function login() {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      
+      if (username === 'admin' && password === 'password') {
+        document.getElementById('login-page').classList.add('hidden');
+        document.getElementById('homepage').classList.remove('hidden');
+      } else {
+        document.getElementById('login-error').style.display = 'block';
+      }
+    }
+
+    function goToLogin() {
+  document.querySelectorAll('#homepage > div').forEach(div => div.classList.add('hidden'));
+  document.getElementById('homepage').classList.remove('hidden');
+    }
+
+    function showSection(sectionId) {
+      document.querySelectorAll('#homepage > div').forEach(div => div.classList.add('hidden'));
+      document.getElementById(sectionId).classList.remove('hidden');
+      if (sectionId === 'employee-lookup') {
+        loadEmployeeTable();
+      }
+    }
+
+    function loadEmployeeTable() {
+      const tableBody = document.getElementById('employee-table');
+      tableBody.innerHTML = '';
+      employees.forEach(employee => {
+        const row = `<tr>
+          <td>${employee.id}</td>
+          <td>${employee.name}</td>
+          <td>${employee.department}</td>
+          <td>${employee.position}</td>
+        </tr>`;
+        tableBody.insertAdjacentHTML('beforeend', row);
+      });
+      document.getElementById('no-results').style.display = 'none';
+    }
+
+    function filterEmployees() {
+      const searchTerm = document.getElementById('search').value.toLowerCase();
+      const filteredEmployees = employees.filter(emp =>
+        emp.name.toLowerCase().includes(searchTerm) || emp.id.toString().includes(searchTerm)
+      );
+      const tableBody = document.getElementById('employee-table');
+      tableBody.innerHTML = '';
+      if (filteredEmployees.length > 0) {
+        filteredEmployees.forEach(employee => {
+          const row = `<tr>
+            <td>${employee.id}</td>
+            <td>${employee.name}</td>
+            <td>${employee.department}</td>
+            <td>${employee.position}</td>
+          </tr>`;
+          tableBody.insertAdjacentHTML('beforeend', row);
+        });
+        document.getElementById('no-results').style.display = 'none';
+      } else {
+        document.getElementById('no-results').style.display = 'block';
+      }
+    }
+  </script>
+</body>
+</html>
