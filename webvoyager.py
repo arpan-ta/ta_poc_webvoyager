@@ -359,11 +359,11 @@ async def main(keyword):
         await page.goto("https://www.chromium.org")
 
         if keyword == "github":
-            prompt = "Login to github.com with spartan07 as username and hh53T9rSPaRZ6Tg as password"
+            prompt = "Login to github.com with spartan07 as username and xxxx as password"
         elif keyword == "docker":
-            prompt = "Login to docker.com with arpan92 as username and ZTytu#ku65&E)a* as password"
+            prompt = "Login to docker.com with arpan92 as username and xxxx as password"
         else:
-            prompt = "Login to github.com with spartan07 as username and hh53T9rSPaRZ6Tg as password"
+            prompt = "Login to github.com with spartan07 as username and xxxxx as password"
         res = await call_agent(prompt,
             page,
         )
