@@ -1,0 +1,10 @@
+langchain
+langchain_core
+langchain_openai
+langchainhub
+langgraph
+playwright
+nest-asyncio
+IPython
+python-dotenv
+
