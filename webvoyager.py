@@ -335,7 +335,7 @@ def select_tool(state: AgentState):
     # is called to route the output to a tool or
     # to the end user.
     action = state["prediction"]["action"]
-    if action.lower() == "answer":
+    if action.lower().startswith("answer"):
         return END
     if action == "retry":
         return "agent"
@@ -359,11 +359,11 @@ async def main(keyword):
         await page.goto("https://www.chromium.org")
 
         if keyword == "github":
-            prompt = "Login to github.com with spartan07 as username and xxxx as password"
+            prompt = "Login to github.com with spartan07 as username and  hh53T9rSPaRZ6Tg as password"
         elif keyword == "docker":
             prompt = "Login to docker.com with arpan92 as username and xxxx as password"
         else:
-            prompt = "Login to github.com with spartan07 as username and xxxxx as password"
+            prompt = "Login to http://localhost:8000/employee_portal.html and login with admin as username and password as password"
         res = await call_agent(prompt,
             page,
         )
