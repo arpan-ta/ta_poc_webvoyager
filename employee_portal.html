@@ -18,6 +18,7 @@
       background: #fff;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       border-radius: 8px;
+      position: relative;
     }
     .hidden {
       display: none;
@@ -64,9 +65,28 @@
       border-color: #007bff;
       outline: none;
     }
+    .logout-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: blue;
+    color: white;
+    border: none;
+    width: 60px;
+    height: 30px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+    .logout-btn:hover {
+      background: darkred;
+    }
   </style>
 </head>
-<body>
+<body onload="checkLogin()">
   <div class="container" id="login-page">
     <h2>Login</h2>
     <label for="username">Username:</label>
@@ -78,6 +98,7 @@
   </div>
 
   <div class="container hidden" id="homepage">
+    <button class="logout-btn" onclick="logout()">Logout</button>
     <h2>Welcome to the Employee Portal</h2>
     <div class="tabs">
       <div class="tab" onclick="showSection('employee-lookup')">Employee Lookup</div>
@@ -86,7 +107,7 @@
       <div class="tab">FAQ</div>
       <div class="tab">Taxes</div>
     </div>
-    <button onclick="goToLogin()">Home</button>
+    <button onclick="goToHomepage()">Home</button>
     <div id="employee-lookup" class="hidden">
       <h3>Employee Lookup</h3>
       <input type="text" id="search" placeholder="Search by name or ID">
@@ -98,6 +119,8 @@
             <th>Name</th>
             <th>Department</th>
             <th>Position</th>
+            <th>Active</th>
+            <th>Access Flag</th>
           </tr>
         </thead>
         <tbody id="employee-table">
@@ -110,10 +133,10 @@
 
   <script>
     const employees = [
-      { id: 1, name: 'John Doe', department: 'Engineering', position: 'Software Engineer' },
-      { id: 2, name: 'Jane Smith', department: 'HR', position: 'HR Manager' },
-      { id: 3, name: 'Sam Johnson', department: 'Finance', position: 'Accountant' },
-      { id: 4, name: 'Chris Lee', department: 'Marketing', position: 'Marketing Specialist' }
+      { id: 12345, name: 'John Doe', department: 'Engineering', position: 'Software Engineer',active: 'Yes', access_flag:'Yes'},
+      { id: 28798, name: 'Jane Smith', department: 'HR', position: 'HR Manager',active: 'Yes', access_flag:'Yes' },
+      { id: 31231, name: 'Sam Johnson', department: 'Finance', position: 'Accountant',active: 'Yes', access_flag:'Yes' },
+      { id: 41435, name: 'Chris Lee', department: 'Marketing', position: 'Marketing Specialist',active: 'Yes', access_flag:'Yes' }
     ];
 
     function login() {
@@ -121,6 +144,7 @@
       const password = document.getElementById('password').value;
       
       if (username === 'admin' && password === 'password') {
+        localStorage.setItem('loggedIn', 'true');
         document.getElementById('login-page').classList.add('hidden');
         document.getElementById('homepage').classList.remove('hidden');
       } else {
@@ -128,9 +152,22 @@
       }
     }
 
-    function goToLogin() {
-  document.querySelectorAll('#homepage > div').forEach(div => div.classList.add('hidden'));
-  document.getElementById('homepage').classList.remove('hidden');
+    function checkLogin() {
+      if (localStorage.getItem('loggedIn') === 'true') {
+        document.getElementById('login-page').classList.add('hidden');
+        document.getElementById('homepage').classList.remove('hidden');
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('loggedIn');
+      document.getElementById('homepage').classList.add('hidden');
+      document.getElementById('login-page').classList.remove('hidden');
+    }
+
+    function goToHomepage() {
+      document.querySelectorAll('#homepage > div').forEach(div => div.classList.add('hidden'));
+      document.getElementById('homepage').classList.remove('hidden');
     }
 
     function showSection(sectionId) {
@@ -141,41 +178,22 @@
       }
     }
 
-    function loadEmployeeTable() {
-      const tableBody = document.getElementById('employee-table');
-      tableBody.innerHTML = '';
-      employees.forEach(employee => {
-        const row = `<tr>
-          <td>${employee.id}</td>
-          <td>${employee.name}</td>
-          <td>${employee.department}</td>
-          <td>${employee.position}</td>
-        </tr>`;
-        tableBody.insertAdjacentHTML('beforeend', row);
-      });
-      document.getElementById('no-results').style.display = 'none';
-    }
-
     function filterEmployees() {
-      const searchTerm = document.getElementById('search').value.toLowerCase();
-      const filteredEmployees = employees.filter(emp =>
-        emp.name.toLowerCase().includes(searchTerm) || emp.id.toString().includes(searchTerm)
-      );
+      const query = document.getElementById('search').value.toLowerCase();
       const tableBody = document.getElementById('employee-table');
+      const noResults = document.getElementById('no-results');
+      
       tableBody.innerHTML = '';
-      if (filteredEmployees.length > 0) {
-        filteredEmployees.forEach(employee => {
-          const row = `<tr>
-            <td>${employee.id}</td>
-            <td>${employee.name}</td>
-            <td>${employee.department}</td>
-            <td>${employee.position}</td>
-          </tr>`;
-          tableBody.insertAdjacentHTML('beforeend', row);
+      const filtered = employees.filter(emp => emp.name.toLowerCase().includes(query) || emp.id.toString().includes(query));
+      
+      if (filtered.length > 0) {
+        noResults.style.display = 'none';
+        filtered.forEach(emp => {
+          const row = `<tr><td>${emp.id}</td><td>${emp.name}</td><td>${emp.department}</td><td>${emp.position}</td><td>${emp.active}</td><td>${emp.access_flag}</td></tr>`;
+          tableBody.innerHTML += row;
         });
-        document.getElementById('no-results').style.display = 'none';
       } else {
-        document.getElementById('no-results').style.display = 'block';
+        noResults.style.display = 'block';
       }
     }
   </script>

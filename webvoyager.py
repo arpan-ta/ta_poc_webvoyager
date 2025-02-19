@@ -351,7 +351,7 @@ from playwright.async_api import async_playwright
 
 
 
-async def main(keyword):
+async def main(keyword="github"):
     async with async_playwright() as p:
         # We will set headless=False so we can watch the agent navigate the web.
         browser = await p.chromium.launch(headless=False, args=None)
@@ -359,11 +359,11 @@ async def main(keyword):
         await page.goto("https://www.chromium.org")
 
         if keyword == "github":
-            prompt = "Login to github.com with spartan07 as username and  xxxx as password"
+            prompt = "Login to github.com with spartan07 as username and  hh53T9rSPaRZ6Tg as password"
         elif keyword == "docker":
             prompt = "Login to docker.com with arpan92 as username and xxxx as password"
         else:
-            prompt = "Login to http://localhost:8000/employee_portal.html and login with admin as username and password as password"
+            prompt = "Login to http://localhost:8000/employee_portal.html and login with admin as username and password as password. After loggin in click on employee lookup tab  and search for employee with id 12345."
         res = await call_agent(prompt,
             page,
         )
@@ -403,7 +403,9 @@ async def call_agent(question: str, page, max_steps: int = 150):
 
 if __name__ == "__main__":
     parser= argparse.ArgumentParser(description="Run web automation task with a specified prompt.")
-    parser.add_argument("keyword", type=str, help="The prompt to run.")
+    parser.add_argument("--keyword", type=str, help="The prompt to run.")
 
     args= parser.parse_args()
     asyncio.run(main(args.keyword))
+
+
