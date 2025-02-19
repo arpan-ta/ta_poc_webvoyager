@@ -1,19 +1,26 @@
 import os
 from getpass import getpass
 import argparse
-
+from langchain import hub
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts.chat import ChatPromptTemplate
+from langchain_core.messages import HumanMessage
 import random
+from PIL import Image
 
 def simulate_human_typing(text):
     start = 0
     word_len = len(text)+1
-    end = start + min(random.randint(1,3), word_len)
+    rand_int = random.randint(1,3)
+    end = start + min(rand_int, word_len)
 
     while True:
         output =  text[start:end]
 
         start = end
-        end = min(start+random.randint(1,3), word_len+1)
+        end = min(start+rand_int, word_len+1)
 
         yield output
 
@@ -181,6 +188,53 @@ async def to_google(state: AgentState):
     await page.goto("https://www.google.com/")
     return "Navigated to google.com."
 
+async def summarize_image(state: AgentState):
+    """Summarizes an image with a short context of what is displayed."""
+    from io import BytesIO
+    page = state["page"]
+    screenshot = await page.screenshot()
+    image_url = base64.b64encode(screenshot)
+    if not image_url:
+        return {**state, "observation": "No image provided"}
+    print('invoke summarize image')
+    # Load Image
+    image_data = base64.b64decode(image_url)#.decode("utf-8")
+    # img = Image.open(BytesIO(image_data))
+    img = Image.open(BytesIO(image_data))
+
+    # Create a temporary file
+    # # with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
+    #     img.save(temp_file, format="JPEG")
+    #     image_data = temp_file.name
+    file = 'image.jpg'
+    img.save(file)
+
+    def encode_image(image_path):
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode("utf-8")
+
+    base64_image = encode_image(file)
+
+    # Send image to GPT-4o for summarization
+    messages = [
+        SystemMessage(content="You are an AI that summarizes images concisely."),
+        HumanMessage(content="Describe and summarize this image in a super short, meaningful way."),
+        HumanMessage(content= [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}},
+                            ])]
+    # https: // platform.openai.com / docs / guides / vision
+    #https://github.com/langchain-ai/langchain/discussions/23374
+    # response = llm(messages)
+    # print(response.content)
+    # Store the summary in the agent state
+    chat_prompt_template = ChatPromptTemplate.from_messages(
+        messages=messages)
+
+    from langchain_core.output_parsers import StrOutputParser
+    output_parser = StrOutputParser()
+    chain = chat_prompt_template | llm | output_parser
+    result = chain.invoke({})
+    print(result)
+    return f"{result}"#, "observation": response.content}
 
 import base64
 
@@ -212,12 +266,6 @@ async def mark_page(page):
     }
 
 
-from langchain import hub
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
-from langchain_openai import ChatOpenAI
-
-
 async def annotate(state):
     marked_page = await mark_page.with_retry().ainvoke(state["page"])
     return {**state, **marked_page}
@@ -237,7 +285,7 @@ def format_descriptions(state):
 
 def parse(text: str) -> dict:
     action_prefix = "Action: "
-    answer_prefix = "ANSWER:"
+    answer_prefix = "Answer"
     if text.strip().split("\n")[-1].startswith(answer_prefix):
         action_str = action_block[len(answer_prefix) :]
         split_output = action_str.split(" ", 1)
@@ -316,6 +364,7 @@ tools = {
     "Navigate": go_to_url,
     "GoBack": go_back,
     "HomePage": to_homepage,
+    "summarize_image": summarize_image,
 }
 
 
@@ -335,14 +384,18 @@ def select_tool(state: AgentState):
     # is called to route the output to a tool or
     # to the end user.
     action = state["prediction"]["action"]
-    if action.lower().startswith("answer"):
-        return END
+    # if action.lower().startswith("answer"):
+    #     return END
     if action == "retry":
         return "agent"
     return action
 
-
+graph_builder.add_node(
+        'Answer',
+        RunnableLambda(summarize_image) | (lambda observation: {"observation": observation}),
+    )
 graph_builder.add_conditional_edges("agent", select_tool)
+graph_builder.add_edge("Answer", END)
 
 graph = graph_builder.compile()
 
@@ -359,11 +412,12 @@ async def main(keyword="github"):
         await page.goto("https://www.chromium.org")
 
         if keyword == "github":
-            prompt = "Login to github.com with spartan07 as username and  hh53T9rSPaRZ6Tg as password"
+            prompt = "Login to github.com with spartan07 as username and  xxxxx as password"
         elif keyword == "docker":
             prompt = "Login to docker.com with arpan92 as username and xxxx as password"
         else:
-            prompt = "Login to http://localhost:8000/employee_portal.html and login with admin as username and password as password. After loggin in click on employee lookup tab  and search for employee with id 12345."
+            prompt = "Login to http://localhost:8000/employee_portal.html and login with admin as username and password as password."
+            #After loggin in click on employee lookup tab  and search for employee with id 12345."
         res = await call_agent(prompt,
             page,
         )
@@ -393,9 +447,9 @@ async def call_agent(question: str, page, max_steps: int = 150):
         steps.append(f"{len(steps) + 1}. {action}: {action_input}")
         print("\n".join(steps))
         display.display(display.Image(base64.b64decode(event["agent"]["img"])))
-        if "answer" in action.lower():
-            final_answer = action_input[0]
-            break
+        # if "answer" in action.lower():
+        #     final_answer = action_input[0]
+        #     break
     return final_answer
 
 
@@ -403,9 +457,10 @@ async def call_agent(question: str, page, max_steps: int = 150):
 
 if __name__ == "__main__":
     parser= argparse.ArgumentParser(description="Run web automation task with a specified prompt.")
-    parser.add_argument("--keyword", type=str, help="The prompt to run.")
+    parser.add_argument("--keyword", type=str, default = "local", help="The prompt to run.")
 
     args= parser.parse_args()
+    print(f"Received argument: {args.keyword}")
     asyncio.run(main(args.keyword))
 
 
