@@ -218,7 +218,7 @@ async def summarize_image(state: AgentState):
     # Send image to GPT-4o for summarization
     messages = [
         SystemMessage(content="You are an AI that summarizes images concisely."),
-        HumanMessage(content="Describe and summarize this image in a super short, meaningful way."),
+        HumanMessage(content="""Describe the employee's status. Assess if the employee is active and has access flag"""),
         HumanMessage(content= [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}},
                             ])]
     # https: // platform.openai.com / docs / guides / vision
@@ -416,8 +416,9 @@ async def main(keyword="github"):
         elif keyword == "docker":
             prompt = "Login to docker.com with arpan92 as username and xxxx as password"
         else:
-            prompt = "Login to http://localhost:8000/employee_portal.html and login with admin as username and password as password."
-            #After loggin in click on employee lookup tab  and search for employee with id 12345."
+            prompt = """1.Login to http://localhost:8000/employee_portal.html and login with admin as username and password as password.
+            2.After logging in click on employee lookup tab and search for employee with id 12345 and generate search results
+            3.If the user's active flag is No and the access_flag is Yes, then we have an answer, otherwise exit the workflow."""
         res = await call_agent(prompt,
             page,
         )
