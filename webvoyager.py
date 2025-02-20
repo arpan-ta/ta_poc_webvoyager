@@ -1,14 +1,59 @@
 import os
 from getpass import getpass
+import asyncio
+import platform
+import base64
+from datetime import datetime
 import argparse
 from langchain import hub
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts.chat import ChatPromptTemplate
-from langchain_core.messages import HumanMessage
 import random
+import time
+import json
+import re
+from io import BytesIO
+from langchain_openai import AzureChatOpenAI
 from PIL import Image
+from playwright.async_api import async_playwright, Page
+from typing import List, Optional
+from typing_extensions import TypedDict
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+from langchain_core.runnables import chain as chain_decorator
+from langchain_core.prompts.chat import ChatPromptTemplate
+from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage
+from langgraph.graph import END, START, StateGraph
+
+import warnings
+warnings.filterwarnings('ignore')
+
+base_path = '~/Desktop/'
+with open(r'config.json') as config_file:
+    config_details = json.load(config_file)
+
+# Load config values
+openai_api_endpoint = config_details['config_list'][0]['azure_endpoint']
+
+# API version e.g. "2023-07-01-preview"
+openai_api_version = config_details['config_list'][0]['api_version']
+
+model_name = config_details['config_list'][0]['model']
+# The API key for your Azure OpenAI resource.
+openai_api_key = config_details['config_list'][0]['api_key']
+# The APItype for your Azure OpenAI resource.
+openai_api_type = config_details['config_list'][0]['api_type']
+
+llm = AzureChatOpenAI(
+    openai_api_version=openai_api_version,
+    azure_endpoint=openai_api_endpoint,
+    openai_api_key=openai_api_key,
+    openai_api_type=openai_api_type,
+    temperature=0.2,
+    max_tokens=4096,
+    timeout=120,
+    max_retries=10,
+    model=model_name,
+    # other params...
+)
 
 def simulate_human_typing(text):
     start = 0
@@ -26,26 +71,6 @@ def simulate_human_typing(text):
 
         if end>=word_len+1:
             break
-
-
-def _getpass(env_var: str):
-    if not os.environ.get(env_var):
-        os.environ[env_var] = getpass(f"{env_var}=")
-
-
-_getpass("OPENAI_API_KEY")
-
-
-import nest_asyncio
-
-# This is just required for running async playwright in a Jupyter notebook
-nest_asyncio.apply()
-
-from typing import List, Optional
-from typing_extensions import TypedDict
-
-from langchain_core.messages import BaseMessage, SystemMessage
-from playwright.async_api import Page
 
 
 class BBox(TypedDict):
@@ -72,10 +97,6 @@ class AgentState(TypedDict):
     # A system message (or messages) containing the intermediate steps
     scratchpad: List[BaseMessage]
     observation: str  # The most recent response from a tool
-
-
-import asyncio
-import platform
 
 
 async def click(state: AgentState):
@@ -190,30 +211,27 @@ async def to_google(state: AgentState):
 
 async def summarize_image(state: AgentState):
     """Summarizes an image with a short context of what is displayed."""
-    from io import BytesIO
     page = state["page"]
     screenshot = await page.screenshot()
     image_url = base64.b64encode(screenshot)
     if not image_url:
         return {**state, "observation": "No image provided"}
-    print('invoke summarize image')
+    print('Screenshot & Summarize image')
     # Load Image
     image_data = base64.b64decode(image_url)#.decode("utf-8")
     # img = Image.open(BytesIO(image_data))
     img = Image.open(BytesIO(image_data))
 
-    # Create a temporary file
-    # # with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
-    #     img.save(temp_file, format="JPEG")
-    #     image_data = temp_file.name
-    file = 'image.jpg'
-    img.save(file)
+
+    random_id = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz0123456789', k=8))
+    img_file = os.path.expanduser(f'{base_path}image_{random_id}.jpg')
+    img.save(img_file)
 
     def encode_image(image_path):
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode("utf-8")
 
-    base64_image = encode_image(file)
+    base64_image = encode_image(img_file)
 
     # Send image to GPT-4o for summarization
     messages = [
@@ -229,16 +247,20 @@ async def summarize_image(state: AgentState):
     chat_prompt_template = ChatPromptTemplate.from_messages(
         messages=messages)
 
-    from langchain_core.output_parsers import StrOutputParser
     output_parser = StrOutputParser()
     chain = chat_prompt_template | llm | output_parser
     result = chain.invoke({})
+
+    txt_file = os.path.expanduser(f"{base_path}result_{random_id}.txt")
+    with open(txt_file, "w") as file:
+        file.write(f"Image saved at: {img_file}\n")
+        file.write(result)
+
     print(result)
+    
     return f"{result}"#, "observation": response.content}
 
-import base64
 
-from langchain_core.runnables import chain as chain_decorator
 
 # Some javascript we will run on each step
 # to take a screenshot of the page, select the
@@ -287,6 +309,7 @@ def parse(text: str) -> dict:
     action_prefix = "Action: "
     answer_prefix = "Answer"
     if text.strip().split("\n")[-1].startswith(answer_prefix):
+        action_block = text.strip().split("\n")[-1]
         action_str = action_block[len(answer_prefix) :]
         split_output = action_str.split(" ", 1)
         if len(split_output) == 1:
@@ -297,8 +320,8 @@ def parse(text: str) -> dict:
     
     if not text.strip().split("\n")[-1].startswith(action_prefix):
         return {"action": "retry", "args": f"Could not parse LLM Output: {text}"}
+    
     action_block = text.strip().split("\n")[-1]
-
     action_str = action_block[len(action_prefix) :]
     split_output = action_str.split(" ", 1)
     if len(split_output) == 1:
@@ -318,13 +341,9 @@ def parse(text: str) -> dict:
 #prompt = hub.pull("avg/login-agent")
 prompt = hub.pull("avg/web-voyager_adapted_signin")
 
-llm = ChatOpenAI(model="gpt-4o", max_tokens=4096)
 agent = annotate | RunnablePassthrough.assign(
     prediction=format_descriptions | prompt | llm | StrOutputParser() | parse
 )
-
-
-import re
 
 
 def update_scratchpad(state: AgentState):
@@ -343,9 +362,7 @@ def update_scratchpad(state: AgentState):
     return {**state, "scratchpad": [SystemMessage(content=txt)]}
 
 
-from langchain_core.runnables import RunnableLambda
 
-from langgraph.graph import END, START, StateGraph
 
 graph_builder = StateGraph(AgentState)
 
@@ -399,30 +416,32 @@ graph_builder.add_edge("Answer", END)
 
 graph = graph_builder.compile()
 
-from IPython import display
-from playwright.async_api import async_playwright
-
-
 
 async def main(keyword="github"):
     async with async_playwright() as p:
+        if keyword == "github":
+            prompt = "Login to github.com with spartan07 as username and  xxxxx as password"
+        elif keyword == "docker":
+            prompt = "Login to docker.com with arpan92 as username and xxxx as password"
+        elif keyword == "local":
+            prompt = """1.Login to http://localhost:8000/employee_portal.html and login with admin as username and password as password.
+            2.After logging in click on employee lookup tab and enter employee id 12345 and click on Search.
+            3.Comment on the employee status and the active flag."""
+        elif keyword == "github-ta":
+            prompt = """.Login to https://anishadesai-ta.github.io/companydemo/ and login with admin as username and password as password123.
+            2.After logging in click on employee lookup tab and search for employee David Miller and generate search results
+            3.Answer with David Miller's employee status and access flag"""
+        print(f"Given Prompt: {prompt}")
+        print("Initiating agent shortly....")
+        time.sleep(8)
         # We will set headless=False so we can watch the agent navigate the web.
         browser = await p.chromium.launch(headless=False, args=None)
         page = await browser.new_page()
         await page.goto("https://www.chromium.org")
 
-        if keyword == "github":
-            prompt = "Login to github.com with spartan07 as username and  xxxxx as password"
-        elif keyword == "docker":
-            prompt = "Login to docker.com with arpan92 as username and xxxx as password"
-        else:
-            prompt = """1.Login to http://localhost:8000/employee_portal.html and login with admin as username and password as password.
-            2.After logging in click on employee lookup tab and search for employee with id 12345 and generate search results
-            3.If the user's active flag is No and the access_flag is Yes, then we have an answer, otherwise exit the workflow."""
         res = await call_agent(prompt,
             page,
         )
-        print(f"Final response: {res}")
 
 async def call_agent(question: str, page, max_steps: int = 150):
     event_stream = graph.astream(
@@ -444,10 +463,10 @@ async def call_agent(question: str, page, max_steps: int = 150):
         pred = event["agent"].get("prediction") or {}
         action = pred.get("action")
         action_input = pred.get("args")
-        display.clear_output(wait=False)
+        #display.clear_output(wait=False)
         steps.append(f"{len(steps) + 1}. {action}: {action_input}")
         print("\n".join(steps))
-        display.display(display.Image(base64.b64decode(event["agent"]["img"])))
+        #display.display(display.Image(base64.b64decode(event["agent"]["img"])))
         # if "answer" in action.lower():
         #     final_answer = action_input[0]
         #     break
