@@ -1,0 +1,13 @@
+{
+"config_list": [
+    {
+        "api_type": "azure",
+        "api_key": "4feeebf652bd46168c6a863b99314fc9",
+        "azure_endpoint": "https://tigeropenaiservice.openai.azure.com/",
+        "api_version": "2024-08-01-preview",
+        "model": "gpt-4o"
+    }
+],
+"temperature": 0.2,
+"timeout": 120
+}

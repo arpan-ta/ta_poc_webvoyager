@@ -1,14 +1,62 @@
-import os
-from getpass import getpass
 import argparse
-from langchain import hub
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts.chat import ChatPromptTemplate
-from langchain_core.messages import HumanMessage
+import base64
+
+import json
 import random
+import re
+from typing import List, Optional
+from IPython import display
+from playwright.async_api import async_playwright
+import nest_asyncio
 from PIL import Image
+from langchain import hub
+from langchain_core.messages import BaseMessage, SystemMessage
+from langchain_core.messages import HumanMessage
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts.chat import ChatPromptTemplate
+from langchain_core.runnables import RunnableLambda
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.runnables import chain as chain_decorator
+from langchain_openai import AzureChatOpenAI
+from langgraph.graph import END, START, StateGraph
+from playwright.async_api import Page
+from typing_extensions import TypedDict
+
+with open(r'config.json') as config_file:
+    config_details = json.load(config_file)
+
+# Load config values
+openai_api_endpoint = config_details['config_list'][0]['azure_endpoint']
+
+# API version e.g. "2023-07-01-preview"
+openai_api_version = config_details['config_list'][0]['api_version']
+
+model_name = config_details['config_list'][0]['model']
+# The API key for your Azure OpenAI resource.
+openai_api_key = config_details['config_list'][0]['api_key']
+# The APItype for your Azure OpenAI resource.
+openai_api_type = config_details['config_list'][0]['api_type']
+
+llm = AzureChatOpenAI(
+    openai_api_version=openai_api_version,
+    azure_endpoint=openai_api_endpoint,
+    openai_api_key=openai_api_key,
+    openai_api_type=openai_api_type,
+    temperature=0.2,
+    max_tokens=4096,
+    timeout=120,
+    max_retries=10,
+    model=model_name,
+    # other params...
+)
+# def _getpass(env_var: str):
+#     if not os.environ.get(env_var):
+#         os.environ[env_var] = getpass(f"{env_var}=")
+#
+#
+# _getpass("OPENAI_API_KEY")
+#
+# os.environ['OPENAI_API_KEY'] =
 
 def simulate_human_typing(text):
     start = 0
@@ -28,24 +76,9 @@ def simulate_human_typing(text):
             break
 
 
-def _getpass(env_var: str):
-    if not os.environ.get(env_var):
-        os.environ[env_var] = getpass(f"{env_var}=")
-
-
-_getpass("OPENAI_API_KEY")
-
-
-import nest_asyncio
-
 # This is just required for running async playwright in a Jupyter notebook
 nest_asyncio.apply()
 
-from typing import List, Optional
-from typing_extensions import TypedDict
-
-from langchain_core.messages import BaseMessage, SystemMessage
-from playwright.async_api import Page
 
 
 class BBox(TypedDict):
@@ -236,9 +269,6 @@ async def summarize_image(state: AgentState):
     print(result)
     return f"{result}"#, "observation": response.content}
 
-import base64
-
-from langchain_core.runnables import chain as chain_decorator
 
 # Some javascript we will run on each step
 # to take a screenshot of the page, select the
@@ -287,7 +317,8 @@ def parse(text: str) -> dict:
     action_prefix = "Action: "
     answer_prefix = "Answer"
     if text.strip().split("\n")[-1].startswith(answer_prefix):
-        action_str = action_block[len(answer_prefix) :]
+        # action_block = text.strip().split("\n")[-1]
+        action_str = action_block[len(answer_prefix):]
         split_output = action_str.split(" ", 1)
         if len(split_output) == 1:
             action, action_input = split_output[0], None
@@ -318,13 +349,11 @@ def parse(text: str) -> dict:
 #prompt = hub.pull("avg/login-agent")
 prompt = hub.pull("avg/web-voyager_adapted_signin")
 
-llm = ChatOpenAI(model="gpt-4o", max_tokens=4096)
+# llm = ChatOpenAI(model="gpt-4o", max_tokens=4096)
 agent = annotate | RunnablePassthrough.assign(
     prediction=format_descriptions | prompt | llm | StrOutputParser() | parse
 )
 
-
-import re
 
 
 def update_scratchpad(state: AgentState):
@@ -343,9 +372,6 @@ def update_scratchpad(state: AgentState):
     return {**state, "scratchpad": [SystemMessage(content=txt)]}
 
 
-from langchain_core.runnables import RunnableLambda
-
-from langgraph.graph import END, START, StateGraph
 
 graph_builder = StateGraph(AgentState)
 
@@ -398,9 +424,18 @@ graph_builder.add_conditional_edges("agent", select_tool)
 graph_builder.add_edge("Answer", END)
 
 graph = graph_builder.compile()
+try:
+    PNG_GRAPH = graph.get_graph().draw_mermaid_png()
 
-from IPython import display
-from playwright.async_api import async_playwright
+    with open("agent_flow_graph.png", "wb") as f:
+        f.write(PNG_GRAPH)
+    display(Image(PNG_GRAPH))
+
+
+except Exception:
+    # This requires some extra dependencies and is optional
+    pass
+
 
 
 
