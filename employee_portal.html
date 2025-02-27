@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee Portal</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #fff;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+      position: relative;
+    }
+    .hidden {
+      display: none;
+    }
+    .tabs {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .tab {
+      padding: 10px 20px;
+      background: #007bff;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .tab:hover {
+      background: #0056b3;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background: #007bff;
+      color: white;
+    }
+    input[type="text"], input[type="password"], button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      box-sizing: border-box;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    input[type="text"]:focus, input[type="password"]:focus, button:focus {
+      border-color: #007bff;
+      outline: none;
+    }
+    .logout-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: blue;
+    color: white;
+    border: none;
+    width: 60px;
+    height: 30px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+    .logout-btn:hover {
+      background: darkred;
+    }
+  </style>
+</head>
+<body onload="checkLogin()">
+  <div class="container" id="login-page">
+    <h2>Login</h2>
+    <label for="username">Username:</label>
+    <input type="text" id="username" placeholder="Enter your username">
+    <label for="password">Password:</label>
+    <input type="password" id="password" placeholder="Enter your password">
+    <button onclick="login()">Login</button>
+    <p id="login-error" style="color: red; display: none;">Invalid username or password</p>
+  </div>
+
+  <div class="container hidden" id="homepage">
+    <button class="logout-btn" onclick="logout()">Logout</button>
+    <h2>Welcome to the Employee Portal</h2>
+    <div class="tabs">
+      <div class="tab" onclick="showSection('employee-lookup')">Employee Lookup</div>
+      <div class="tab">Holiday List</div>
+      <div class="tab">Support</div>
+      <div class="tab">FAQ</div>
+      <div class="tab">Taxes</div>
+    </div>
+    <button onclick="goToHomepage()">Home</button>
+    <div id="employee-lookup" class="hidden">
+      <h3>Employee Lookup</h3>
+      <input type="text" id="search" placeholder="Search by name or ID">
+      <button onclick="filterEmployees()">Search</button>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Department</th>
+            <th>Position</th>
+            <th>Employee Status</th>
+            <th>Access Flag</th>
+          </tr>
+        </thead>
+        <tbody id="employee-table">
+          <!-- Employee rows will be injected here by JavaScript -->
+        </tbody>
+      </table>
+      <p id="no-results" style="color: red; display: none;">No employee found</p>
+    </div>
+  </div>
+
+  <script>
+    const employees = [
+      { id: 12345, name: 'John Doe', department: 'Engineering', position: 'Software Engineer',status: 'Active', access_flag:'Yes'},
+      { id: 28798, name: 'Jane Smith', department: 'HR', position: 'HR Manager',status: 'Terminated', access_flag:'Yes' },
+      { id: 31231, name: 'Sam Johnson', department: 'Finance', position: 'Accountant',status: 'Active', access_flag:'Yes' },
+      { id: 41435, name: 'Chris Lee', department: 'Marketing', position: 'Marketing Specialist',status: 'Terminated', access_flag:'Yes' }
+    ];
+
+    function login() {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      
+      if (username === 'admin' && password === 'password') {
+        localStorage.setItem('loggedIn', 'true');
+        document.getElementById('login-page').classList.add('hidden');
+        document.getElementById('homepage').classList.remove('hidden');
+      } else {
+        document.getElementById('login-error').style.display = 'block';
+      }
+    }
+
+    function checkLogin() {
+      if (localStorage.getItem('loggedIn') === 'true') {
+        document.getElementById('login-page').classList.add('hidden');
+        document.getElementById('homepage').classList.remove('hidden');
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('loggedIn');
+      document.getElementById('homepage').classList.add('hidden');
+      document.getElementById('login-page').classList.remove('hidden');
+    }
+
+    function goToHomepage() {
+      document.querySelectorAll('#homepage > div').forEach(div => div.classList.add('hidden'));
+      document.getElementById('homepage').classList.remove('hidden');
+    }
+
+    function showSection(sectionId) {
+      document.querySelectorAll('#homepage > div').forEach(div => div.classList.add('hidden'));
+      document.getElementById(sectionId).classList.remove('hidden');
+      if (sectionId === 'employee-lookup') {
+        loadEmployeeTable();
+      }
+    }
+
+    function filterEmployees() {
+      const query = document.getElementById('search').value.toLowerCase();
+      const tableBody = document.getElementById('employee-table');
+      const noResults = document.getElementById('no-results');
+      
+      tableBody.innerHTML = '';
+      const filtered = employees.filter(emp => emp.name.toLowerCase().includes(query) || emp.id.toString().includes(query));
+      
+      if (filtered.length > 0) {
+        noResults.style.display = 'none';
+        filtered.forEach(emp => {
+          const row = `<tr><td>${emp.id}</td><td>${emp.name}</td><td>${emp.department}</td><td>${emp.position}</td><td>${emp.status}</td><td>${emp.access_flag}</td></tr>`;
+          tableBody.innerHTML += row;
+        });
+      } else {
+        noResults.style.display = 'block';
+      }
+    }
+  </script>
+</body>
+</html>
