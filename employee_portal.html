@@ -119,7 +119,7 @@
             <th>Name</th>
             <th>Department</th>
             <th>Position</th>
-            <th>Active</th>
+            <th>Employee Status</th>
             <th>Access Flag</th>
           </tr>
         </thead>
@@ -133,10 +133,10 @@
 
   <script>
     const employees = [
-      { id: 12345, name: 'John Doe', department: 'Engineering', position: 'Software Engineer',active: 'Yes', access_flag:'Yes'},
-      { id: 28798, name: 'Jane Smith', department: 'HR', position: 'HR Manager',active: 'Yes', access_flag:'Yes' },
-      { id: 31231, name: 'Sam Johnson', department: 'Finance', position: 'Accountant',active: 'Yes', access_flag:'Yes' },
-      { id: 41435, name: 'Chris Lee', department: 'Marketing', position: 'Marketing Specialist',active: 'Yes', access_flag:'Yes' }
+      { id: 12345, name: 'John Doe', department: 'Engineering', position: 'Software Engineer',status: 'Active', access_flag:'Yes'},
+      { id: 28798, name: 'Jane Smith', department: 'HR', position: 'HR Manager',status: 'Terminated', access_flag:'Yes' },
+      { id: 31231, name: 'Sam Johnson', department: 'Finance', position: 'Accountant',status: 'Active', access_flag:'Yes' },
+      { id: 41435, name: 'Chris Lee', department: 'Marketing', position: 'Marketing Specialist',status: 'Terminated', access_flag:'Yes' }
     ];
 
     function login() {
@@ -189,7 +189,7 @@
       if (filtered.length > 0) {
         noResults.style.display = 'none';
         filtered.forEach(emp => {
-          const row = `<tr><td>${emp.id}</td><td>${emp.name}</td><td>${emp.department}</td><td>${emp.position}</td><td>${emp.active}</td><td>${emp.access_flag}</td></tr>`;
+          const row = `<tr><td>${emp.id}</td><td>${emp.name}</td><td>${emp.department}</td><td>${emp.position}</td><td>${emp.status}</td><td>${emp.access_flag}</td></tr>`;
           tableBody.innerHTML += row;
         });
       } else {
